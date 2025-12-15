@@ -16,10 +16,7 @@ jobs:
           PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9@#%!' </dev/urandom | head -c 16)
 
           echo "Creating user..."
-          sudo sysadminctl \
-            -addUser "$USERNAME" \
-            -password "$PASSWORD" \
-            -admin
+          sudo sysadminctl -addUser "$USERNAME" -password "$PASSWORD" -admin
 
           echo "VNC_USER=$USERNAME" >> "$GITHUB_ENV"
           echo "VNC_PASS=$PASSWORD" >> "$GITHUB_ENV"
@@ -27,10 +24,10 @@ jobs:
       - name: Enable Screen Sharing (VNC)
         shell: bash
         run: |
-          echo "Enabling Screen Sharing..."
+          echo "Enabling Screen Sharing (VNC)..."
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
 
-          echo "Allowing VNC in firewall..."
+          echo "Allowing VNC through firewall..."
           sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /System/Library/CoreServices/RemoteManagement/ARDAgent.app
           sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /System/Library/CoreServices/RemoteManagement/ARDAgent.app
 
