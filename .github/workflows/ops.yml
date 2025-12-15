@@ -1,0 +1,76 @@
+name: macOS-VNC
+
+on:
+  workflow_dispatch:
+
+jobs:
+  macos-vnc:
+    runs-on: macos-latest
+    timeout-minutes: 3600
+
+    steps:
+      - name: Create VNC User
+        shell: bash
+        run: |
+          USERNAME="vncuser"
+          PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9@#%!' </dev/urandom | head -c 16)
+
+          echo "Creating user..."
+          sudo sysadminctl \
+            -addUser "$USERNAME" \
+            -password "$PASSWORD" \
+            -admin
+
+          echo "VNC_USER=$USERNAME" >> "$GITHUB_ENV"
+          echo "VNC_PASS=$PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Enable Screen Sharing (VNC)
+        shell: bash
+        run: |
+          echo "Enabling Screen Sharing..."
+          sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
+
+          echo "Allowing VNC in firewall..."
+          sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /System/Library/CoreServices/RemoteManagement/ARDAgent.app
+          sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /System/Library/CoreServices/RemoteManagement/ARDAgent.app
+
+      - name: Install Tailscale
+        shell: bash
+        run: |
+          brew install tailscale
+
+      - name: Start Tailscale
+        shell: bash
+        run: |
+          sudo tailscale up \
+            --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} \
+            --hostname=gh-macos-${{ github.run_id }}
+
+          TS_IP=$(tailscale ip -4)
+          echo "TAILSCALE_IP=$TS_IP" >> "$GITHUB_ENV"
+
+      - name: Verify VNC Port
+        shell: bash
+        run: |
+          echo "Checking VNC port 5900..."
+          nc -zv 127.0.0.1 5900
+
+      - name: Show Connection Details
+        shell: bash
+        run: |
+          echo "=============================="
+          echo " macOS VNC ACCESS "
+          echo "=============================="
+          echo "Address : $TAILSCALE_IP"
+          echo "Port    : 5900"
+          echo "User    : $VNC_USER"
+          echo "Pass    : $VNC_PASS"
+          echo "=============================="
+
+      - name: Keep Runner Alive
+        shell: bash
+        run: |
+          while true; do
+            echo "[$(date)] macOS VNC Active"
+            sleep 300
+          done
